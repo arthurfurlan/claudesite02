@@ -21,7 +21,12 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-mural}:${POSTGRES_PASSWORD:-mural}@db:5432/${POSTGRES_DB:-mural}
+      # Partes soltas em vez de uma URL montada: assim a produção substitui só a
+      # senha (por arquivo, no docker-compose.cloudez.yml) sem reescrever o resto.
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-mural}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-mural}
+      PGDATABASE: ${POSTGRES_DB:-mural}
       UPLOAD_DIR: /data/uploads
     volumes:
       - uploads:/data/uploads

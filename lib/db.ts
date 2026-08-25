@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { Pool } from "pg";
 
 declare global {
@@ -6,16 +7,33 @@ declare global {
 }
 
 function createPool() {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error("DATABASE_URL não definida. Veja .env.example.");
-  }
-  return new Pool({
-    connectionString,
+  const comuns = {
     max: Number(process.env.DATABASE_POOL_MAX ?? 10),
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
-  });
+  };
+
+  // Em dev, a URL inteira vem do .env.local — inclusive a senha, que ali é
+  // descartável.
+  const connectionString = process.env.DATABASE_URL;
+  if (connectionString) return new Pool({ connectionString, ...comuns });
+
+  /**
+   * Em produção a senha não está em variável de ambiente nem no compose: ela
+   * mora num arquivo fora do diretório da release, montado só-leitura no
+   * container. Variável de ambiente aparece em `docker inspect` e nos logs de
+   * quem der um `env`; arquivo com modo 600 não.
+   */
+  const arquivoSenha = process.env.PGPASSWORD_FILE;
+  const password = arquivoSenha
+    ? readFileSync(/*turbopackIgnore: true*/ arquivoSenha, "utf8").trim()
+    : undefined;
+
+  // Sem connectionString, o pg lê PGHOST/PGUSER/PGDATABASE do ambiente sozinho.
+  if (!process.env.PGHOST) {
+    throw new Error("Sem DATABASE_URL nem PGHOST. Veja .env.example.");
+  }
+  return new Pool({ password, ...comuns });
 }
 
 /**

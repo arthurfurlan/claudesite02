@@ -79,10 +79,27 @@ Ajuste `DATABASE_URL` no `.env.local` para a porta que você escolheu.
 
 | Variável | Para quê |
 |---|---|
-| `DATABASE_URL` | Conexão com o Postgres |
+| `DATABASE_URL` | Conexão completa — usada só no dev fora de container |
+| `PGHOST` / `PGUSER` / `PGDATABASE` | Partes da conexão, usadas quando não há `DATABASE_URL` |
+| `PGPASSWORD_FILE` | Caminho do arquivo com a senha (produção) |
 | `UPLOAD_DIR` | Onde os arquivos são gravados |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do container do banco |
-| `APP_PORT` | Porta publicada no host |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do container do banco em dev |
+| `APP_PORT` / `POSTGRES_PORT` | Portas publicadas no host em dev |
+
+### A senha do Postgres em produção
+
+Não está no repositório, nem no compose, nem em variável de ambiente. Ela fica em
+`~/claudesite01.afurlan.org/segredos/pg_password` no servidor — **fora do
+diretório da release**, que é recriado a cada deploy — com modo `600`, e é
+montada só-leitura em `/run/segredos` nos dois containers.
+
+O `docker-compose.cloudez.yml` aponta `POSTGRES_PASSWORD_FILE` (que a imagem do
+Postgres entende nativamente) e `PGPASSWORD_FILE` (que `lib/db.ts` lê). Arquivo em
+vez de variável porque variável de ambiente aparece em `docker inspect` e em
+qualquer `env` rodado dentro do container.
+
+Para trocar a senha: escreva a nova no arquivo, rode
+`ALTER USER mural WITH PASSWORD '…'` no banco, e recrie os containers.
 
 ## O que não tem
 

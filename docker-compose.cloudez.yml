@@ -1,0 +1,23 @@
+# Sobreposição de produção — o plugin da Cloudez a mescla no servidor com -f.
+#
+# A senha do Postgres não está aqui nem em lugar nenhum do repositório: ela mora
+# em /home/claudesite01/claudesite01.afurlan.org/segredos/pg_password, fora do
+# diretório da release (que é recriado a cada deploy) e montada só-leitura.
+#
+# `!reset` é necessário: a imagem do postgres recusa subir com POSTGRES_PASSWORD
+# e POSTGRES_PASSWORD_FILE definidos ao mesmo tempo, e o arquivo base define o
+# primeiro para o desenvolvimento local.
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD: !reset null
+      POSTGRES_PASSWORD_FILE: /run/segredos/pg_password
+    volumes:
+      - /home/claudesite01/claudesite01.afurlan.org/segredos:/run/segredos:ro
+
+  app:
+    environment:
+      PGPASSWORD: !reset null
+      PGPASSWORD_FILE: /run/segredos/pg_password
+    volumes:
+      - /home/claudesite01/claudesite01.afurlan.org/segredos:/run/segredos:ro
