@@ -22,8 +22,13 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV UPLOAD_DIR=/data/uploads
 
-RUN groupadd --system --gid 1001 nodejs \
- && useradd --system --uid 1001 --gid nodejs nextjs \
+# O uid precisa bater com o dono dos arquivos montados do host — hoje o arquivo
+# de senha, modo 600. Default 1001 para o dev local; produção passa o HOST_UID
+# da Cloudez pelo docker-compose.cloudez.yml.
+ARG UID=1001
+ARG GID=1001
+RUN groupadd --system --gid ${GID} nodejs \
+ && useradd --system --uid ${UID} --gid nodejs nextjs \
  && mkdir -p /data/uploads \
  && chown -R nextjs:nodejs /data
 

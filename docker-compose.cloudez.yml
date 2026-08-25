@@ -16,6 +16,12 @@ services:
       - /home/claudesite01/claudesite01.afurlan.org/segredos:/run/segredos:ro
 
   app:
+    build:
+      args:
+        # HOST_UID da conta Cloudez. Sem isto o container roda como 1001 e o
+        # arquivo de senha, 600 do uid 1014, dá EACCES na leitura.
+        UID: "1014"
+        GID: "993"
     environment:
       PGPASSWORD: !reset null
       PGPASSWORD_FILE: /run/segredos/pg_password
