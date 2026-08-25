@@ -4,6 +4,9 @@ Drive virtual com cadastro aberto: o usuário cria conta, entra e começa a subi
 arquivos arrastando para qualquer lugar da tela. Pastas aninhadas, e link
 público opcional por arquivo.
 
+Não há página pública: a raiz desvia para `/entrar` quem não tem sessão, e para
+`/drive` quem tem. O cadastro fica a um clique, pelo link no formulário de login.
+
 ## Stack
 
 - **Next.js 16** (App Router, React 19) + **TypeScript**
