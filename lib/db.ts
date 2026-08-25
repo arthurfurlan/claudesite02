@@ -1,7 +1,6 @@
 import { Pool } from "pg";
 
 declare global {
-  // Reaproveita o pool entre hot-reloads do dev, senão cada reload abre um novo.
   var __pgPool: Pool | undefined;
   var __pgReady: Promise<void> | undefined;
 }
@@ -23,77 +22,70 @@ function createPool() {
  * Preguiçoso de propósito: `next build` importa este módulo para compilar as
  * rotas, e ali DATABASE_URL não existe. Conectar só na primeira query.
  */
-function pool() {
+export function pool() {
   globalThis.__pgPool ??= createPool();
   return globalThis.__pgPool;
 }
 
 const SCHEMA = `
-  CREATE TABLE IF NOT EXISTS recados (
-    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    autor        text NOT NULL,
-    mensagem     text NOT NULL,
-    foto_id      text,
-    foto_largura integer,
-    foto_altura  integer,
-    criado_em    timestamptz NOT NULL DEFAULT now()
+  CREATE TABLE IF NOT EXISTS usuarios (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    email      text NOT NULL UNIQUE,
+    senha_hash text NOT NULL,
+    criado_em  timestamptz NOT NULL DEFAULT now()
   );
-  CREATE INDEX IF NOT EXISTS recados_criado_em_idx ON recados (criado_em DESC);
+
+  CREATE TABLE IF NOT EXISTS sessoes (
+    token_hash text PRIMARY KEY,
+    usuario_id uuid NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    expira_em  timestamptz NOT NULL,
+    criado_em  timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS sessoes_usuario_idx ON sessoes (usuario_id);
+
+  CREATE TABLE IF NOT EXISTS pastas (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id uuid NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    pai_id     uuid REFERENCES pastas(id) ON DELETE CASCADE,
+    nome       text NOT NULL,
+    criado_em  timestamptz NOT NULL DEFAULT now()
+  );
+
+  /* Nome único dentro da mesma pasta. Em UNIQUE, NULLs nunca colidem entre si,
+     então a raiz (pai_id IS NULL) precisa do seu próprio índice parcial. */
+  CREATE UNIQUE INDEX IF NOT EXISTS pastas_nome_raiz_idx
+    ON pastas (usuario_id, lower(nome)) WHERE pai_id IS NULL;
+  CREATE UNIQUE INDEX IF NOT EXISTS pastas_nome_idx
+    ON pastas (usuario_id, pai_id, lower(nome)) WHERE pai_id IS NOT NULL;
+
+  CREATE TABLE IF NOT EXISTS arquivos (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id uuid NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    pasta_id   uuid REFERENCES pastas(id) ON DELETE CASCADE,
+    nome       text NOT NULL,
+    tamanho    bigint NOT NULL,
+    tipo       text NOT NULL,
+    blob_id    text NOT NULL UNIQUE,
+    link_token text UNIQUE,
+    criado_em  timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS arquivos_pasta_idx
+    ON arquivos (usuario_id, pasta_id, criado_em DESC);
 `;
 
-/**
- * Migração idempotente rodada na primeira query. Um init script em
- * docker-entrypoint-initdb.d só roda com o volume vazio, o que quebraria
- * em qualquer deploy subsequente.
- */
-async function migrate() {
-  await pool().query(SCHEMA);
-}
-
+/** Migração idempotente rodada na primeira query. */
 export function ready() {
-  globalThis.__pgReady ??= migrate();
+  globalThis.__pgReady ??= pool()
+    .query(SCHEMA)
+    .then(() => undefined);
   return globalThis.__pgReady;
 }
 
-export type Recado = {
-  id: string;
-  autor: string;
-  mensagem: string;
-  foto_id: string | null;
-  foto_largura: number | null;
-  foto_altura: number | null;
-  criado_em: Date;
-};
-
-export async function listarRecados(limite = 100): Promise<Recado[]> {
+export async function consulta<T extends object>(
+  sql: string,
+  valores: unknown[] = [],
+) {
   await ready();
-  const { rows } = await pool().query<Recado>(
-    `SELECT id, autor, mensagem, foto_id, foto_largura, foto_altura, criado_em
-       FROM recados
-      ORDER BY criado_em DESC
-      LIMIT $1`,
-    [limite],
-  );
+  const { rows } = await pool().query<T>(sql, valores);
   return rows;
-}
-
-export async function criarRecado(dados: {
-  autor: string;
-  mensagem: string;
-  fotoId: string | null;
-  fotoLargura: number | null;
-  fotoAltura: number | null;
-}) {
-  await ready();
-  await pool().query(
-    `INSERT INTO recados (autor, mensagem, foto_id, foto_largura, foto_altura)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [
-      dados.autor,
-      dados.mensagem,
-      dados.fotoId,
-      dados.fotoLargura,
-      dados.fotoAltura,
-    ],
-  );
 }

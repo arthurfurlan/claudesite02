@@ -1,35 +1,60 @@
-# Mural de recados
+# Meu drive
 
-Página única onde qualquer pessoa deixa um recado, opcionalmente com uma foto
-anexada. Sem login: o autor digita o próprio nome.
+Drive virtual com cadastro aberto: o usuário cria conta, entra e começa a subir
+arquivos arrastando para qualquer lugar da tela. Pastas aninhadas, e link
+público opcional por arquivo.
 
 ## Stack
 
 - **Next.js 16** (App Router, React 19) + **TypeScript**
-- **Tailwind CSS v4** + **shadcn/ui** (preset Nova, base Radix)
-- **Postgres 17** via `pg`
-- **sharp** para reprocessar as imagens enviadas
-- Deploy em container (**Docker Compose**)
+- **Tailwind CSS v4** + **shadcn/ui**
+- **Postgres 17** via `pg` — metadados
+- Volume Docker — os bytes dos arquivos
+- **argon2id** (`@node-rs/argon2`) para as senhas
+- Deploy em container (**Docker Compose**) na Cloudez
 
-## Como funciona
+## Decisões que valem explicar
 
-Publicar um recado é uma **Server Action** (`app/actions.ts`). Ela valida os
-campos com zod, aplica um limite de frequência por IP, processa a foto e grava
-no banco — nessa ordem, para que entrada inválida nunca chegue ao disco.
+### Os arquivos nunca são servidos inline
 
-As fotos **não são gravadas como vieram**. `lib/storage.ts` decodifica o arquivo
-com sharp, aplica a orientação do EXIF, limita a 1600px de largura, converte
-para WebP e descarta todos os metadados. Isso normaliza o tamanho, remove
-coordenadas de GPS do EXIF e faz um arquivo que só finge ser imagem falhar no
-decode, antes de qualquer escrita.
+Um drive guarda os bytes como vieram — diferente de um upload de imagem, que dá
+para reprocessar. Se o site devolvesse um `.html` enviado por alguém como
+`text/html`, o script dele rodaria no domínio da aplicação, com acesso ao cookie
+de sessão de quem abrisse: XSS armazenado.
 
-O arquivo final fica num volume (`/data/uploads`), fora do bundle, e é servido
-por `app/api/media/[id]/route.ts`. Essa rota só aceita ids no formato UUID que
-nós mesmos geramos, o que fecha a porta para path traversal.
+Por isso `lib/download.ts` responde **sempre** `application/octet-stream` com
+`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` e uma CSP
+`default-src 'none'; sandbox` — mesmo quando o tipo real é conhecido.
 
-O schema é criado por uma migração idempotente na primeira query
-(`lib/db.ts`), e não por um script em `docker-entrypoint-initdb.d` — aquele só
-roda com o volume vazio e não sobreviveria ao segundo deploy.
+### O upload não passa por multipart
+
+`POST /api/upload` recebe o arquivo como **corpo cru**, com nome e tipo em
+headers codificados. Isso permite gravar em streaming direto no disco, contando
+os bytes no caminho e abortando ao estourar o limite. Bufferizar um upload de
+50 MB para depois conferir o tamanho gastaria justamente a memória que se quer
+limitar — e o servidor tem 1 vCPU e 2 GB.
+
+O cliente usa `XMLHttpRequest` e não `fetch` por um motivo só: apenas ele expõe
+progresso de upload.
+
+### Autenticação
+
+Senha em argon2id. A sessão é um token de 256 bits no cookie `httpOnly`; o banco
+guarda só o SHA-256 dele, então vazamento de leitura no banco não entrega sessão
+utilizável. Login responde a mesma mensagem para senha errada e e-mail
+inexistente — distingui-las transformaria o formulário num verificador de quem
+tem conta aqui.
+
+### Limites
+
+| | |
+|---|---|
+| Cota por usuário | 1 GB (`COTA_BYTES` em `lib/drive.ts`) |
+| Tamanho por arquivo | 50 MB |
+
+Os 50 MB **não são escolha do código**: é o `upload_maxsize` do nginx da Cloudez.
+Requisição maior não chega à aplicação. Para aumentar, mude no painel da Cloudez
+e ajuste `TAMANHO_MAXIMO` em `lib/storage.ts`.
 
 ## Rodando
 
@@ -39,36 +64,31 @@ roda com o volume vazio e não sobreviveria ao segundo deploy.
 docker compose up -d --build
 ```
 
-A app sobe em http://localhost:3000. Para usar outra porta: `APP_PORT=3010 docker compose up -d`.
-
 ### Dev com hot reload
 
-O Postgres do compose não expõe porta por padrão. O overlay de dev expõe:
+O overlay de dev expõe o Postgres e permite outra porta:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db
-```
-
-Depois:
-
-```bash
+APP_PORT=3010 POSTGRES_PORT=5433 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db
 cp .env.example .env.local && npm install && npm run dev
 ```
+
+Ajuste `DATABASE_URL` no `.env.local` para a porta que você escolheu.
 
 ## Variáveis de ambiente
 
 | Variável | Para quê |
 |---|---|
 | `DATABASE_URL` | Conexão com o Postgres |
-| `UPLOAD_DIR` | Onde as fotos processadas são gravadas |
+| `UPLOAD_DIR` | Onde os arquivos são gravados |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do container do banco |
 | `APP_PORT` | Porta publicada no host |
 
-## Limites conhecidos
+## O que não tem
 
-- O rate limit é **em memória**: reinicia com o container e não é compartilhado
-  entre réplicas. Segura spam casual; para tráfego hostil, use um limite no proxy.
-- Sem moderação e sem edição/remoção — qualquer pessoa publica com qualquer nome.
-  É a consequência de não ter login, decidida no escopo.
-- Sem tema escuro. Os tokens do shadcn já estão no CSS; falta só o `next-themes`
-  e um botão de alternância.
+- **Mover arquivo entre pastas.** Cria, navega, renomeia e exclui — mover ficou fora.
+- **Soltar uma pasta inteira** na tela. Só arquivos; a leitura recursiva de
+  diretório no drop não foi implementada.
+- **Recuperação de senha.** Exigiria servidor de e-mail.
+- **Confirmação de e-mail.** Qualquer endereço digitado é aceito.
+- **Lixeira.** Excluir apaga na hora, inclusive os bytes no volume.

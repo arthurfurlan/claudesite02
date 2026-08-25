@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mural de recados",
-  description: "Deixe um recado com foto no mural.",
+  title: "Meu drive",
+  description: "Seu drive virtual: envie arquivos arrastando para a tela.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
