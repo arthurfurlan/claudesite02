@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mural}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mural}
+      POSTGRES_DB: ${POSTGRES_DB:-mural}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mural} -d ${POSTGRES_DB:-mural}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-mural}:${POSTGRES_PASSWORD:-mural}@db:5432/${POSTGRES_DB:-mural}
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    ports:
+      # Fixa de propósito: é a porta que o nginx da Cloudez encaminha para "/".
+      # Para publicar em outra porta localmente, use docker-compose.dev.yml.
+      - "3000:3000"
+
+volumes:
+  pgdata:
+  uploads:

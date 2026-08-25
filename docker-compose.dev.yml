@@ -1,0 +1,14 @@
+# Overlay só para desenvolvimento local: expõe o Postgres para o `npm run dev`
+# rodar fora do container. Use com -f explícito para não vazar a porta em produção.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db
+services:
+  db:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  app:
+    # !override porque o Compose SOMA listas de ports entre arquivos: sem ele,
+    # o serviço tenta publicar 3000 (da base) e a porta de dev ao mesmo tempo.
+    ports: !override
+      - "${APP_PORT:-3000}:3000"

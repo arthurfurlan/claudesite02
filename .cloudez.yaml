@@ -1,0 +1,4 @@
+cloudez:
+  production:
+    domain: claudesite01.afurlan.org
+    root: ~/claudesite01.afurlan.org/www/claude
