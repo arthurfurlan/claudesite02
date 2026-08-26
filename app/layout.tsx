@@ -15,10 +15,21 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Meu drive",
-  description: "Seu drive virtual: envie arquivos arrastando para a tela.",
-};
+/**
+ * Função e não objeto estático: assim o nome é lido a cada requisição, e não
+ * congelado no build. É o que permite a mesma imagem servir claudesite01 e
+ * claudesite02 mudando só a variável no compose.
+ */
+export function generateMetadata(): Metadata {
+  const site = process.env.SITE_NOME ?? "claudesite01";
+  return {
+    title: {
+      default: `Meu drive · ${site}`,
+      template: `%s · ${site}`,
+    },
+    description: "Seu drive virtual: envie arquivos arrastando para a tela.",
+  };
+}
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

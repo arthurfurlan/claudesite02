@@ -86,6 +86,7 @@ Ajuste `DATABASE_URL` no `.env.local` para a porta que você escolheu.
 | `PGHOST` / `PGUSER` / `PGDATABASE` | Partes da conexão, usadas quando não há `DATABASE_URL` |
 | `PGPASSWORD_FILE` | Caminho do arquivo com a senha (produção) |
 | `UPLOAD_DIR` | Onde os arquivos são gravados |
+| `SITE_NOME` | Nome da instância no título da aba (default `claudesite01`) |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do container do banco em dev |
 | `APP_PORT` / `POSTGRES_PORT` | Portas publicadas no host em dev |
 

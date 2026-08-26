@@ -28,6 +28,8 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:-mural}
       PGDATABASE: ${POSTGRES_DB:-mural}
       UPLOAD_DIR: /data/uploads
+      # Aparece no título da aba. Distingue instâncias do mesmo código.
+      SITE_NOME: ${SITE_NOME:-claudesite01}
     volumes:
       - uploads:/data/uploads
     ports:
