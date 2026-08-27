@@ -1,4 +1,4 @@
 cloudez:
   production:
-    domain: claudesite01.afurlan.org
-    root: ~/claudesite01.afurlan.org/www/claude
+    domain: claudesite02.afurlan.org
+    root: ~/claudesite02.afurlan.org/www/claude

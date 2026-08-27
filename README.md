@@ -82,28 +82,37 @@ Ajuste `DATABASE_URL` no `.env.local` para a porta que você escolheu.
 
 | Variável | Para quê |
 |---|---|
-| `DATABASE_URL` | Conexão completa — usada só no dev fora de container |
+| `DATABASE_URL` | Conexão completa — o dev fora de container, e produção via `.cloudez.env` |
 | `PGHOST` / `PGUSER` / `PGDATABASE` | Partes da conexão, usadas quando não há `DATABASE_URL` |
-| `PGPASSWORD_FILE` | Caminho do arquivo com a senha (produção) |
 | `UPLOAD_DIR` | Onde os arquivos são gravados |
-| `SITE_NOME` | Nome da instância no título da aba (default `claudesite01`) |
+| `SMTP_HOST` / `SMTP_PORT` | MTA para envio (default `localhost:25`, o do servidor) |
+| `EMAIL_REMETENTE` | Endereço no `From:` dos e-mails |
+| `SITE_NOME` | Nome da instância no título da aba (default `claudesite02`) |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do container do banco em dev |
 | `APP_PORT` / `POSTGRES_PORT` | Portas publicadas no host em dev |
 
-### A senha do Postgres em produção
+### O banco em produção
 
-Não está no repositório, nem no compose, nem em variável de ambiente. Ela fica em
-`~/claudesite01.afurlan.org/segredos/pg_password` no servidor — **fora do
-diretório da release**, que é recriado a cada deploy — com modo `600`, e é
-montada só-leitura em `/run/segredos` nos dois containers.
+Produção não sobe o container `db`: usa a **instância Postgres gerenciada pela
+Cloudez**, vinculada ao site. Backup, atualização e disco são dela — que é
+justamente o que um banco em container obrigaria o projeto a resolver sozinho.
 
-O `docker-compose.cloudez.yml` aponta `POSTGRES_PASSWORD_FILE` (que a imagem do
-Postgres entende nativamente) e `PGPASSWORD_FILE` (que `lib/db.ts` lê). Arquivo em
-vez de variável porque variável de ambiente aparece em `docker inspect` e em
-qualquer `env` rodado dentro do container.
+O `docker-compose.cloudez.yml` tira o `db` de produção com `profiles: ["dev"]` e
+zera as `PG*` herdadas do arquivo base, que apontavam para o container.
 
-Para trocar a senha: escreva a nova no arquivo, rode
-`ALTER USER mural WITH PASSWORD '…'` no banco, e recrie os containers.
+A credencial não está no repositório, nem no compose, nem em variável declarada
+em arquivo versionado. Ela mora no `DATABASE_URL` de
+`~/claudesite02.afurlan.org/www/claude/shared/.cloudez.env`, modo `600` — **fora
+do diretório da release**, que é recriado a cada deploy — e o deploy liga esse
+arquivo dentro de cada release, onde o `env_file` da sobreposição o lê.
+
+Para gravar ou trocar a credencial, é o `cloudez_set_env` do plugin da Cloudez
+(ele mescla por chave, então não apaga as outras variáveis) — ou o arquivo
+direto no servidor. Um `.env` local não serve: o `cloudez-sync` não transfere o
+que está no `.gitignore`.
+
+Desenvolvimento não mudou: o Postgres continua subindo pelo Compose, na máquina
+de quem desenvolve.
 
 ## O que não tem
 

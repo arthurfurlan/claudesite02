@@ -1,29 +1,50 @@
 # Sobreposição de produção — o plugin da Cloudez a mescla no servidor com -f.
 #
-# A senha do Postgres não está aqui nem em lugar nenhum do repositório: ela mora
-# em /home/claudesite01/claudesite01.afurlan.org/segredos/pg_password, fora do
-# diretório da release (que é recriado a cada deploy) e montada só-leitura.
+# Em produção o Postgres não sobe em container: é a instância gerenciada da
+# Cloudez, vinculada ao site. Quem cuida de backup, atualização e disco é ela.
 #
-# `!reset` é necessário: a imagem do postgres recusa subir com POSTGRES_PASSWORD
-# e POSTGRES_PASSWORD_FILE definidos ao mesmo tempo, e o arquivo base define o
-# primeiro para o desenvolvimento local.
+# As credenciais não estão aqui — este arquivo é versionado. Elas moram em
+# `<root>/shared/.cloudez.env`, modo 600, fora do diretório da release (que é
+# recriado a cada deploy), e o deploy liga esse arquivo dentro de cada release.
 services:
+  # `profiles` tira o banco de produção sem apagá-lo do arquivo base, que é o
+  # que o desenvolvimento continua usando.
   db:
-    environment:
-      POSTGRES_PASSWORD: !reset null
-      POSTGRES_PASSWORD_FILE: /run/segredos/pg_password
-    volumes:
-      - /home/claudesite01/claudesite01.afurlan.org/segredos:/run/segredos:ro
+    profiles: ["dev"]
 
   app:
-    build:
-      args:
-        # HOST_UID da conta Cloudez. Sem isto o container roda como 1001 e o
-        # arquivo de senha, 600 do uid 1014, dá EACCES na leitura.
-        UID: "1014"
-        GID: "993"
+    # Não é opcional. Um serviço com perfil inativo não existe para quem depende
+    # dele, e o Compose recusa o projeto inteiro com "app depends on undefined
+    # service db" — derrubando tudo, não só o banco.
+    depends_on: !reset null
+
+    # O Postgres da Cloudez atende em 127.0.0.1 do servidor, e `localhost` dentro
+    # de um container é o próprio container. Compartilhar a pilha de rede do host
+    # é o que faz o `localhost` do DATABASE_URL apontar para o banco de verdade.
+    #
+    # Custa o isolamento de rede do container — aceitável aqui porque, sem o `db`,
+    # não sobrou nada na rede do Compose para isolar.
+    network_mode: host
+
+    # `ports` é incompatível com `network_mode: host`: o Compose recusa o projeto
+    # com os dois. Sem o mapeamento, o Next escuta direto na 3000 do servidor —
+    # que é a mesma porta que a custom_port do site já encaminha.
+    ports: !reset null
+
+    # DATABASE_URL vem daqui, e é o primeiro caminho que o lib/db.ts tenta.
+    #
+    # Caminho absoluto, e não `.cloudez.env` relativo: o arquivo mora em
+    # `shared/`, fora da release, e nada o liga para dentro dela — o deploy faz
+    # isso para bind de volume, não para env_file. Relativo, o Compose o procura
+    # na raiz da release e recusa o projeto inteiro com "env file not found".
+    env_file:
+      - /home/claudesite02/claudesite02.afurlan.org/www/claude/shared/.cloudez.env
+
+    # As PG* do arquivo base apontam para o container `db`, que não sobe aqui.
+    # Sem o reset elas ficariam no ambiente mentindo sobre onde o banco está — e
+    # `environment` tem precedência sobre `env_file`, então elas venceriam.
     environment:
+      PGHOST: !reset null
+      PGUSER: !reset null
       PGPASSWORD: !reset null
-      PGPASSWORD_FILE: /run/segredos/pg_password
-    volumes:
-      - /home/claudesite01/claudesite01.afurlan.org/segredos:/run/segredos:ro
+      PGDATABASE: !reset null

@@ -17,11 +17,11 @@ const geistMono = Geist_Mono({
 
 /**
  * Função e não objeto estático: assim o nome é lido a cada requisição, e não
- * congelado no build. É o que permite a mesma imagem servir claudesite01 e
- * claudesite02 mudando só a variável no compose.
+ * congelado no build. É o que permite a mesma imagem servir claudesite02
+ * mudando só a variável no compose.
  */
 export function generateMetadata(): Metadata {
-  const site = process.env.SITE_NOME ?? "claudesite01";
+  const site = process.env.SITE_NOME ?? "claudesite02";
   return {
     title: {
       default: `Meu drive · ${site}`,
