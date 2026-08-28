@@ -7,5 +7,12 @@ export const dynamic = "force-dynamic";
 
 export default async function Entrar() {
   if (await usuarioAtual()) redirect("/drive");
-  return <FormAuth modo="entrar" acao={entrar} />;
+  // O fundo é só desta página: o token --background continua valendo no resto.
+  // `flex-1` porque o body é `min-h-full flex flex-col` — sem ele a cor iria só
+  // até onde o formulário termina.
+  return (
+    <div className="flex flex-1 flex-col bg-sky-100 dark:bg-sky-950">
+      <FormAuth modo="entrar" acao={entrar} />
+    </div>
+  );
 }
