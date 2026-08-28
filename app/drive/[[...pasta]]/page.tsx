@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ChevronRight, HardDrive, LogOut } from "lucide-react";
+import { ChevronRight, HardDrive, LogOut, Mail } from "lucide-react";
 import { usuarioAtual } from "@/lib/auth";
 import { sair } from "@/app/auth-actions";
 import {
@@ -54,6 +54,12 @@ export default async function Drive({
             <span className="text-muted-foreground hidden truncate text-sm sm:block">
               {usuario.email}
             </span>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/teste-email">
+                <Mail className="size-4" />
+                <span className="hidden sm:inline">Teste de Email</span>
+              </Link>
+            </Button>
             <form action={sair}>
               <Button type="submit" variant="ghost" size="sm">
                 <LogOut className="size-4" />
