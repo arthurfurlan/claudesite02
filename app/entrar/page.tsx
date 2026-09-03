@@ -11,7 +11,7 @@ export default async function Entrar() {
   // `flex-1` porque o body é `min-h-full flex flex-col` — sem ele a cor iria só
   // até onde o formulário termina.
   return (
-    <div className="flex flex-1 flex-col bg-sky-100 dark:bg-sky-950">
+    <div className="flex flex-1 flex-col bg-purple-200 dark:bg-purple-950">
       <FormAuth modo="entrar" acao={entrar} />
     </div>
   );
